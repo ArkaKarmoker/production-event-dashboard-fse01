@@ -1,192 +1,181 @@
-# CSI Smart Tech LTD | FSE 01 - Production Event Processing Dashboard
+# CSI Smart Tech Ltd | FSE 01 - Production Event Processing Dashboard
 
-**Full Stack Engineering Practical Assessment**  
-**Candidate Name:** Arka Karmoker  
-**Candidate ID:** 12  
-**System:** Real-Time Production Event Processing Dashboard + MQTT Device Integration  
-**Customer Scenario:** NorthBridge Garments (Garment Factory IoT Counting & Exception Management)
+**Full Stack Engineering Practical Assessment + Change Request**  
+- **Candidate Name:** Arka Karmoker  
+- **Candidate ID:** 12  
+- **Client Scenario:** NorthBridge Garments (Garment Factory IoT Event Processing & Supervisor Console)  
+- **Tech Stack:** Python 3.12, Django 6.0, Django REST Framework, PostgreSQL 16, Paho-MQTT 2.1, Next.js 16 (React 19), TypeScript, Tailwind CSS, Docker Compose  
 
 ---
 
 ## 1. System Overview
 
-This system provides an end-to-end event-processing backend and real-time supervisor dashboard designed for NorthBridge Garments. It solves critical factory floor challenges:
-- **Zero Double-Counting:** Idempotent event processing with deterministic SHA-256 payload hashing distinguishes identical replays (`DUPLICATE`) from conflicting edits (`CONFLICT`).
-- **Out-of-Order VOID Resolution:** Sensor or network delays can deliver a `VOID` reversal **before** the matching `COUNT` event. Unmatched `VOID` events are durably stored as `PENDING_REFERENCE` and resolve automatically when the target arrives.
-- **Unified Logic:** REST APIs and the MQTT device worker call the **exact same** business service (`EventService.process_batch`). No logic is duplicated.
-- **Durable PostgreSQL State:** 100% of event ledgers, raw attempts, and simulator challenges persist across server restarts.
-- **Modern Responsive Dashboard:** Single-page dashboard built with Next.js, TypeScript, and Tailwind CSS showing 6 live KPI metrics, event simulator presets, supervisor acknowledgement workflow, and real-time MQTT connectivity status.
+A durable, function-based modular monolith event-processing system with an interactive Next.js supervisor dashboard and outbound MQTT device worker.
+
+- **Zero Double-Counting:** Deterministic SHA-256 payload normalization distinguishes identical resubmissions (`DUPLICATE`) from altered payloads (`CONFLICT`).
+- **Out-of-Order VOID Resolution:** `VOID` arriving prior to its target `COUNT` is safely recorded as `PENDING_REFERENCE` and resolves automatically upon target arrival ("First stored valid VOID wins").
+- **Quantity Range Validation (CR-01):** Single `COUNT` events are strictly validated to `1 <= quantity <= 500`. Excess quantities return `REJECTED` and are audited without increasing production totals.
+- **7-Metric Summary Projection (CR-02 & CR-04):** Durable PostgreSQL calculation providing `net_total`, `processed_events`, `pending_ack`, `unresolved`, `duplicates`, `conflicts`, and `rejected_submissions`.
+- **Production Source Filter (CR-03):** Dashboard toolbar allows live filtering by production line (e.g., `LINE-01`) across Summary, Pending Review, and Exceptions views.
+- **Unified Processing:** REST API (`POST /api/events`) and MQTT worker invoke the exact same service (`EventService.process_batch`). Zero logic duplication.
 
 ---
 
-## 2. Architecture: Function-Based Modular Monolith
+## 2. Architecture & Modular Boundaries
 
 ```text
-                     +-------------------------------------------------+
-                     |                 Ingestion Layer                 |
-                     |     [REST API]                 [MQTT Worker]    |
-                     +-------------------+-----------------------------+
-                                         |
-                                         v
-                     +-------------------------------------------------+
-                     |             Core Event Engine                   |
-                     |  validate_event() -> process_event()            |
-                     |  - COUNT Addition                               |
-                     |  - VOID Reversal & Pending Resolution           |
-                     |  - Idempotency & Conflict Guard                 |
-                     +-------------------+-----------------------------+
-                                         |
-                                         v (ACID Transactions & Row Locks)
-                     +-------------------------------------------------+
-                     |            PostgreSQL Database (Port 5435)      |
-                     |  - production_sources                           |
-                     |  - production_events (composite unique key)     |
-                     |  - submission_attempts (immutable audit trail)  |
-                     |  - mqtt_challenges (idempotent replay cache)    |
-                     +-------------------+-----------------------------+
-                                         |
-                                         v
-                     +-------------------------------------------------+
-                     |          Next.js Supervisor Dashboard           |
-                     |  - 6 KPI Indicators (Net Total, Pending, etc.)  |
-                     |  - Event Ingestion Terminal (Demo Presets)      |
-                     |  - Multi-select Supervisor ACK Table            |
-                     |  - Exceptions & Conflicts Audit View            |
-                     |  - Live MQTT Broker & Challenge Monitor         |
-                     +-------------------------------------------------+
+                       +-------------------------------------------------+
+                       |                 Ingestion Layer                 |
+                       |     [REST API]                 [MQTT Worker]    |
+                       +-------------------+-----------------------------+
+                                           |
+                                           v
+                       +-------------------------------------------------+
+                       |             Core Event Engine                   |
+                       |  validate_event() -> process_event()            |
+                       |  - COUNT Validation (1 to 500, CR-01)           |
+                       |  - VOID Reversal & Pending Reference Matching   |
+                       |  - SHA-256 Idempotency & Conflict Guard         |
+                       +-------------------+-----------------------------+
+                                           |
+                                           v (ACID Transactions & Row Locks)
+                       +-------------------------------------------------+
+                       |            PostgreSQL Database (Port 5435)      |
+                       |  - production_sources                           |
+                       |  - production_events (composite unique key)     |
+                       |  - submission_attempts (immutable audit trail)  |
+                       |  - mqtt_challenges (replay cache & ledger)      |
+                       +-------------------+-----------------------------+
+                                           |
+                                           v
+                       +-------------------------------------------------+
+                       |          Next.js Supervisor Dashboard           |
+                       |  - Source Filter Bar (CR-03: Line-01, Line-02)  |
+                       |  - 7 KPI Indicators (including Rejected, CR-04) |
+                       |  - Event Ingestion Terminal (Demo Presets)      |
+                       |  - Multi-select Supervisor ACK Table            |
+                       |  - Exceptions & Conflicts Table (REJECTED tag)  |
+                       |  - Live MQTT Broker & Challenge Monitor         |
+                       +-------------------------------------------------+
 ```
 
-### Module Layout:
+### Repository Structure:
 ```text
 production-event-dashboard-fse01/
 ├── backend/
-│   ├── core/                        # Django configuration package (settings, urls, wsgi)
+│   ├── core/                        # Django configuration (settings, urls, wsgi)
 │   ├── modules/
-│   │   ├── events/                  # Core Event models, validation, repository, service, views
-│   │   ├── state/                   # State aggregation, summary, pending, exceptions
-│   │   ├── ack/                     # Idempotent acknowledgement service and view
-│   │   ├── mqtt_worker/             # Paho-MQTT client, protocol validator, heartbeat, challenges
+│   │   ├── events/                  # Models, validation (Qty <= 500), service, repository, views
+│   │   ├── state/                   # State aggregation (7 indicators), queries, views
+│   │   ├── ack/                     # Acknowledgement service and view
+│   │   ├── mqtt_worker/             # Paho-MQTT client, protocol validator, heartbeat, worker
 │   │   └── shared/                  # Contracts, constants, domain events
-│   ├── tests/                       # 7 automated test suites (pytest & Django test runner)
-│   ├── requirements.txt             # Pinned top-level dependencies
-│   └── pytest.ini                   # Pytest configuration
+│   ├── tests/                       # 9 automated tests (100% pass)
+│   ├── Dockerfile                   # Python 3.12 backend container definition
+│   └── requirements.txt             # Pinned backend dependencies
 ├── frontend/
 │   ├── src/
 │   │   ├── app/                     # Next.js App Router (page.tsx, layout.tsx, globals.css)
 │   │   └── lib/                     # Typed API client (api.ts)
-│   ├── package.json                 # Next.js, React 19, Tailwind CSS, Lucide icons
-│   └── tsconfig.json
-├── docker-compose.yml               # PostgreSQL 16 container definition
-├── .env.example                     # Sample environment variables
-├── TECHNICAL_EXPLANATION.md         # Comprehensive architectural explanation
-└── AI_USAGE.md                      # AI assistance disclosure record
+│   ├── Dockerfile                   # Next.js frontend container definition
+│   └── package.json
+├── docker-compose.yml               # PostgreSQL 16, Django backend, Next.js frontend
+├── .env.example                     # Environment template without secrets
+├── TECHNICAL_EXPLANATION.md         # Comprehensive architectural documentation
+├── REQUIREMENT_DECISIONS.md         # Clarification questions & architectural trade-offs
+├── AI_USAGE.md                      # AI assistance disclosure record
+└── change_request_document.md       # Assessment Change Request specifications
 ```
 
 ---
 
-## 3. Quick Start & Setup Guide
+## 3. Quick Start & Execution
 
-### Prerequisites
-- Python 3.11+ / 3.12
-- Node.js 18+ / 20+
-- Docker & Docker Compose (or existing PostgreSQL)
+### Option A: One-Command Docker Compose (Recommended)
+
+Start the entire stack (PostgreSQL 16, Django Backend + MQTT Worker, Next.js Frontend):
+```bash
+docker compose up -d
+```
+- **Frontend Dashboard:** [http://localhost:3000](http://localhost:3000)
+- **Backend REST API:** [http://localhost:8000](http://localhost:8000)
+- **PostgreSQL Database:** `localhost:5435` (mapped to avoid local 5432 conflicts)
+
+Stop the stack:
+```bash
+docker compose down
+```
 
 ---
 
-### Step 1: Start PostgreSQL via Docker Compose
-A lightweight PostgreSQL 16 container mapped to port `5435` (to prevent port 5432 host conflicts) is configured:
+### Option B: Local Manual Setup
+
+#### 1. Start PostgreSQL
 ```bash
 docker compose up -d postgres
 ```
 
----
-
-### Step 2: Configure Environment Variables
-Copy the provided `.env.example` to `.env` in the root and backend folders:
-```bash
-cp .env.example .env
-cp .env.example backend/.env
-```
-
----
-
-### Step 3: Setup & Run Backend (Django + DRF)
+#### 2. Setup & Run Backend
 ```bash
 cd backend
-
-# 1. Create and activate virtual environment
 python -m venv venv
-# On Windows:
+
+# Windows:
 venv\Scripts\activate
-# On Linux/macOS:
+# Linux/macOS:
 # source venv/bin/activate
 
-# 2. Install dependencies
 pip install -r requirements.txt
-
-# 3. Apply database migrations
 python manage.py migrate
-
-# 4. Run Django development server (Port 8000)
 python manage.py runserver 8000
 ```
-> **Note:** The MQTT worker connects automatically in the background upon server launch. If you wish to run the MQTT worker as an isolated standalone daemon, execute:
-> ```bash
-> python manage.py run_mqtt_worker
-> ```
+*(The background MQTT worker automatically launches with Django.)*
 
----
-
-### Step 4: Setup & Run Frontend (Next.js)
-In a separate terminal:
+#### 3. Setup & Run Frontend
 ```bash
 cd frontend
-
-# Install frontend dependencies
 npm install
-
-# Start Next.js development server (Port 3000)
 npm run dev
 ```
-Open **[http://localhost:3000](http://localhost:3000)** in your browser to access the supervisor dashboard.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 4. Running Automated Tests
+## 4. Automated Test Suite
 
-7 automated tests verify all 5 mandatory requirements plus edge-case reliability:
+The test suite contains **9 automated tests** covering all mandatory scenarios and change request specifications:
 
-### Run via Django Test Runner:
+### Run Tests:
 ```bash
 cd backend
 python manage.py test tests
 ```
-
-### Run via Pytest:
+*Or via pytest:*
 ```bash
-cd backend
 pytest
 ```
 
-### Test Coverage Summary:
-| Test Name | Scenario Tested |
-| :--- | :--- |
-| `test_1_count_and_total` | New `COUNT +5` event increases `net_total` and sets status `ACCEPTED`. |
-| `test_2_identical_duplicate` | Same event resubmitted returns `DUPLICATE` with zero double-counting. |
-| `test_3_void_before_count_resolution` | `VOID` arriving before `COUNT` is stored as `PENDING_REFERENCE` and auto-resolves when `COUNT` arrives. |
-| `test_4_repeated_acknowledgement` | `POST /api/ack` is idempotent; first is `ACKED`, second is `ALREADY_ACKED`. |
-| `test_5_repeated_mqtt_challenge` | Replay challenge with same ID returns cached response without reprocessing; conflict returns `CHALLENGE_CONFLICT`. |
-| `test_6_batch_processing_and_isolation` | Mixed batch: valid events commit successfully even if another item is `REJECTED`. |
-| `test_7_conflict_detection` | Same event ID with altered payload returns `CONFLICT` and records exception. |
+### Test Scenarios:
+| # | Test Method | Covered Requirement |
+| :---: | :--- | :--- |
+| **1** | `test_1_count_and_total` | `COUNT` increments net total; returns `ACCEPTED`. |
+| **2** | `test_2_identical_duplicate_without_double_counting` | Identical duplicate returns `DUPLICATE`; zero double-counting. |
+| **3** | `test_3_void_before_count_resolution` | Out-of-order `VOID` becomes `PENDING_REFERENCE`; auto-resolves when `COUNT` arrives. |
+| **4** | `test_4_repeated_acknowledgement` | Safe repeated ACK: first is `ACKED`, second is `ALREADY_ACKED`. |
+| **5** | `test_5_repeated_mqtt_challenge_idempotency` | Identical MQTT challenge returns cached response; conflict returns `CHALLENGE_CONFLICT`. |
+| **6** | `test_6_batch_processing_and_isolation` | Mixed batch: valid events commit even if another item is `REJECTED`. |
+| **7** | `test_7_conflict_detection` | Same event ID with different payload returns `CONFLICT`. |
+| **8** | `test_8_count_quantity_max_500_validation` | **CR-01:** `COUNT 450` ➔ `ACCEPTED`; `COUNT 501` ➔ `REJECTED`. Total does not increment. |
+| **9** | `test_9_rejected_submissions_in_summary_and_source_filter` | **CR-02 & CR-03:** `rejected_submissions` in `/api/state` & `/api/stats`, source filter, and MQTT state. |
 
 ---
 
-## 5. REST API Documentation & Curl Examples
+## 5. REST API Reference & Curl Examples
 
 ### 1. `POST /api/events`
-Accepts a single event JSON object or a JSON array.
+Accepts a single event JSON object or an array of event objects.
 
-#### Submit a Single COUNT Event:
+#### Submit Valid COUNT (`quantity <= 500`):
 ```bash
 curl -X POST http://localhost:8000/api/events \
   -H "Content-Type: application/json" \
@@ -194,7 +183,7 @@ curl -X POST http://localhost:8000/api/events \
     "source_id": "LINE-01",
     "event_id": "EV-101",
     "type": "COUNT",
-    "quantity": 5,
+    "quantity": 450,
     "target_event_id": null,
     "event_time": "2026-10-09T10:30:00Z"
   }'
@@ -203,16 +192,33 @@ curl -X POST http://localhost:8000/api/events \
 ```json
 {
   "results": [
-    {
-      "event_id": "EV-101",
-      "status": "ACCEPTED",
-      "message": "Event processed"
-    }
+    { "event_id": "EV-101", "status": "ACCEPTED", "message": "Event processed" }
   ]
 }
 ```
 
-#### Submit a VOID Reversal:
+#### Submit Invalid COUNT (`quantity > 500` - CR-01):
+```bash
+curl -X POST http://localhost:8000/api/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_id": "LINE-01",
+    "event_id": "EV-501",
+    "type": "COUNT",
+    "quantity": 501,
+    "event_time": "2026-10-09T10:30:00Z"
+  }'
+```
+**Response (HTTP 200):**
+```json
+{
+  "results": [
+    { "event_id": "EV-501", "status": "REJECTED", "message": "quantity: COUNT quantity must be an integer between 1 and 500 (received: 501)." }
+  ]
+}
+```
+
+#### Submit VOID Event (Reversal):
 ```bash
 curl -X POST http://localhost:8000/api/events \
   -H "Content-Type: application/json" \
@@ -228,31 +234,37 @@ curl -X POST http://localhost:8000/api/events \
 
 ---
 
-### 2. `GET /api/state`
+### 2. `GET /api/state` (or `/api/stats`)
 Query parameters: `view` (`summary` | `pending` | `exceptions`), optional `source_id`.
 
-#### Get Summary State:
+#### Summary View (All 7 Indicators):
 ```bash
 curl -X GET "http://localhost:8000/api/state?view=summary"
 ```
 **Response (HTTP 200):**
 ```json
 {
-  "net_total": 5,
+  "net_total": 450,
   "processed_events": 1,
   "pending_ack": 1,
   "unresolved": 0,
   "duplicates": 0,
-  "conflicts": 0
+  "conflicts": 0,
+  "rejected_submissions": 1
 }
 ```
 
-#### Get Pending Events (Awaiting Supervisor ACK):
+#### Filtered Summary by Production Line (CR-03):
+```bash
+curl -X GET "http://localhost:8000/api/state?view=summary&source_id=LINE-01"
+```
+
+#### Pending Review View (COUNTs awaiting supervisor sign-off):
 ```bash
 curl -X GET "http://localhost:8000/api/state?view=pending&source_id=LINE-01"
 ```
 
-#### Get Exceptions & Conflicts:
+#### Exceptions View (Unresolved references, conflicts, and rejected attempts):
 ```bash
 curl -X GET "http://localhost:8000/api/state?view=exceptions"
 ```
@@ -260,7 +272,7 @@ curl -X GET "http://localhost:8000/api/state?view=exceptions"
 ---
 
 ### 3. `POST /api/ack`
-Acknowledge processed events by ID.
+Acknowledges reviewed events by ID. Repeated requests are idempotent.
 
 ```bash
 curl -X POST http://localhost:8000/api/ack \
@@ -284,25 +296,28 @@ curl -X POST http://localhost:8000/api/ack \
 | Setting | Value |
 | :--- | :--- |
 | **Broker Host** | `152.42.238.142` |
-| **Port** | `1883` (Plain MQTT) |
+| **Broker Port** | `1883` (Plain MQTT) |
 | **Candidate ID** | `12` |
 | **Client ID** | `fse01-12-{suffix}` |
 | **QoS / Retain** | QoS 1, Retain `false` |
 | **Subscribe Topic** | `fse-01/12/challenge` |
 | **Publish Response** | `fse-01/12/response` |
 | **Publish Status** | `fse-01/12/status` (`ONLINE`, `HEARTBEAT`, `OFFLINE` via LWT) |
+| **Heartbeat Interval**| 30 seconds |
+
+- **Replay Protection:** Identical challenge (`challenge_id` + same payload hash) immediately returns cached `COMPLETED` response without reprocessing events. Same ID with altered body returns `FAILED` with code `CHALLENGE_CONFLICT`.
+- **Envelope Validation:** Validates `protocol_version`, `candidate_id`, `challenge_id`, and `expires_at`.
 
 ---
 
 ## 7. Examiner Live Demo Walkthrough
 
-The dashboard at `http://localhost:3000` includes one-click **Quick Presets** to demonstrate all evaluation criteria in under 2 minutes:
+The supervisor dashboard at [http://localhost:3000](http://localhost:3000) features one-click demo presets:
 
-1. **Step 1 (Open Dashboard):** Open `http://localhost:3000`. The top bar displays candidate identity, connection status, and 6 KPI indicators.
-2. **Step 2 (COUNT +5):** Click `COUNT +5` preset, then click `Submit Event(s)`. Notice Net Total increments to `5`, Pending ACK becomes `1`, and the event appears in the Pending table.
-3. **Step 3 (Duplicate Replay):** Click `Duplicate EV-101` preset and submit again. Result is `DUPLICATE`. Net total stays `5`, and Duplicates indicator increments to `1`.
-4. **Step 4 (VOID before COUNT):**
-   - Click `VOID Before COUNT` preset (reverses `EV-201` before it exists). Result is `PENDING_REFERENCE`. Unresolved counter increments to `1`.
-   - Click `Matching COUNT` preset (`EV-201`, qty `8`). Result is `ACCEPTED`. The system automatically matches and applies the pending void! Net total reflects verified production, and Unresolved drops back to `0`.
-5. **Step 5 (Supervisor ACK):** In the Pending Review table, check the box for `EV-101` and click `Acknowledge Selected (1)`. The item is acknowledged and removed from Pending.
-6. **Step 6 (MQTT Live Status):** Observe the MQTT Device Simulator strip confirming broker connection, candidate ID isolation (`fse-01/12/*`), and heartbeat transmission every 30 seconds.
+1. **Production Source Filter (CR-03):** Use the top filter bar to switch between `All Sources`, `LINE-01`, and `LINE-02`. Notice KPI cards, Pending Review, and Exceptions update synchronously.
+2. **Accepted COUNT (CR-01):** Click `COUNT 450 (Valid)` preset and submit. `net_total` increments by 450, status is `ACCEPTED`, and row appears in Pending Review.
+3. **Rejected COUNT (CR-01 & CR-04):** Click `COUNT 501 (Rejected)` preset and submit. Status is `REJECTED`, `net_total` does not increase, 7th KPI `Rejected Submissions` increments, and event appears in Exceptions with a red `REJECTED` badge.
+4. **Duplicate Replay:** Click `Duplicate EV-101` and submit. Returns `DUPLICATE`; total is unchanged.
+5. **Out-of-Order VOID Resolution:** Click `VOID Before COUNT` (`PENDING_REFERENCE`), then click `Matching COUNT` (`ACCEPTED`). Unresolved count auto-clears back to 0.
+6. **Supervisor Acknowledgement:** Select pending rows and click `Acknowledge Selected`. Status transitions to `ACKED`.
+7. **MQTT Device Monitoring:** Check the live MQTT panel displaying real-time connection status, candidate ID `12`, 30s heartbeat timestamps, and last response status.
