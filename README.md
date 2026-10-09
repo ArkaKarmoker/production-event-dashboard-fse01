@@ -91,6 +91,27 @@ production-event-dashboard-fse01/
 
 ## 3. Quick Start & Execution
 
+### Step 0: Environment Configuration (`.env` Setup)
+
+Create your local `.env` file from the provided template:
+
+```bash
+# On Linux / macOS / Git Bash:
+cp .env.example .env
+
+# On Windows (PowerShell):
+Copy-Item .env.example .env
+```
+
+> **Default Settings:**  
+> The provided `.env.example` is pre-configured out-of-the-box for this assessment:
+> - `DB_PORT=5435` *(mapped to 5435 to prevent collisions with any existing local PostgreSQL service on 5432)*
+> - `MQTT_BROKER_HOST=152.42.238.142`, `MQTT_BROKER_PORT=1883`
+> - `MQTT_CANDIDATE_ID=12` *(candidate topic isolation)*
+> - `NEXT_PUBLIC_API_URL=http://localhost:8000`
+
+---
+
 ### Option A: One-Command Docker Compose (Recommended)
 
 Start the entire stack (PostgreSQL 16, Django Backend + MQTT Worker, Next.js Frontend):
