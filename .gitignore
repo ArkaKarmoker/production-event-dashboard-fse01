@@ -224,4 +224,5 @@ backend/.env
 frontend/node_modules/
 frontend/.next/
 frontend/out/
+*.zip
 
