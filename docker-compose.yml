@@ -39,6 +39,8 @@ services:
       - MQTT_AUTOSTART=${MQTT_AUTOSTART:-True}
     ports:
       - "8000:8000"
+    volumes:
+      - ./backend:/app
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,6 +55,10 @@ services:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     ports:
       - "${FRONTEND_PORT:-3001}:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
     depends_on:
       - backend
 
