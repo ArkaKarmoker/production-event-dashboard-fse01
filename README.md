@@ -164,17 +164,46 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 4. Automated Test Suite
 
-The test suite contains **9 automated tests** covering all mandatory scenarios and change request specifications:
+The test suite contains **9 automated tests** in `backend/tests/test_assessment.py` covering all mandatory scenarios and change request specifications.
 
-### Run Tests:
+### Option 1: Running Tests via Docker (Fastest & Zero Setup)
+If the project stack is running via Docker (`docker compose up -d`), you can execute the test suite directly inside the running backend container without needing local Python or virtual environment setup:
+
 ```bash
-cd backend
-python manage.py test tests
+# Using Django Test Runner:
+docker compose exec backend python manage.py test tests
+
+# Or using Pytest:
+docker compose exec backend pytest
 ```
-*Or via pytest:*
-```bash
-pytest
-```
+
+---
+
+### Option 2: Running Tests Locally (Using Python Virtual Environment)
+If running tests directly in your host machine terminal:
+
+1. **Prerequisite:** Ensure PostgreSQL is running on port `5435` (e.g., `docker compose up -d postgres`).
+2. **Navigate to the backend directory and activate your virtual environment:**
+   ```bash
+   cd backend
+
+   # On Windows (PowerShell):
+   .\venv\Scripts\Activate.ps1
+
+   # On Linux / macOS:
+   source venv/bin/activate
+   ```
+3. **Ensure all dependencies are installed:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. **Run the test suite:**
+   ```bash
+   python manage.py test tests
+
+   # Or via Pytest:
+   pytest
+   ```
 
 ### Test Scenarios:
 | # | Test Method | Covered Requirement |
