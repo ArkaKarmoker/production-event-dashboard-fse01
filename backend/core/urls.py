@@ -45,6 +45,8 @@ urlpatterns = [
 
     path('api/state', StateApiView.as_view(), name='api-state'),
     path('api/state/', StateApiView.as_view(), name='api-state-slash'),
+    path('api/stats', StateApiView.as_view(), name='api-stats-alias'),
+    path('api/stats/', StateApiView.as_view(), name='api-stats-alias-slash'),
 
     path('api/ack', AckApiView.as_view(), name='api-ack'),
     path('api/ack/', AckApiView.as_view(), name='api-ack-slash'),

@@ -81,3 +81,13 @@ Per Stage 2 guidelines (*"Clarify with examiner: Ask up to seven meaningful ques
 
 - **Root `.env` Strategy:** Rather than maintaining divergent `.env` files across folders, the system utilizes a centralized root `.env` loaded into Docker Compose and passed cleanly to backend and frontend containers.
 - **Safety:** `.env` is strictly ignored by Git. `.env.example` is committed to version control with standard template parameters and non-secret defaults.
+
+---
+
+## 5. Change Request Decisions (FSE-01 Modification Requirements)
+
+- **CR-01 (Quantity Range Validation):** Valid single COUNT quantities are integers from 1 to 500 inclusive. Enforced in `EventSerializer.validate()`. Rejections are stored in `submission_attempts` with status `REJECTED` and clear error messaging without increasing totals.
+- **CR-02 (Rejected Submissions in Summary):** Added `rejected_submissions` to `StateQueries.get_summary()`. Filters `submission_attempts` by `classification="REJECTED"`, supporting optional `source_id` filtering. Aliased `/api/stats` to `/api/state`.
+- **CR-03 (Production Source Filter):** Implemented an interactive toolbar on the dashboard with quick pills (`All Sources`, `LINE-01`, `LINE-02`, `LINE-03`), custom text input, active filter badge, and clear button.
+- **CR-04 (Rejected Submissions KPI Indicator):** Added a 7th KPI card in distinct red styling displaying `rejected_submissions`, updating live with source filtering.
+

@@ -242,3 +242,98 @@ class CandidateAssessmentTests(TestCase):
         ex_data = ex_resp.json()
         has_conflict = any(item.get("category") == "CONFLICT" for item in ex_data)
         self.assertTrue(has_conflict)
+
+    def test_8_count_quantity_max_500_validation(self):
+        """Test 8 (Change Request 01): COUNT quantity must be between 1 and 500 inclusive."""
+        # 1. COUNT 450 -> ACCEPTED
+        p_valid = {
+            "source_id": "LINE-01",
+            "event_id": "EV-801",
+            "type": "COUNT",
+            "quantity": 450,
+            "target_event_id": None,
+            "event_time": "2026-10-09T10:30:00Z"
+        }
+        resp_valid = self.client.post("/api/events", data=json.dumps(p_valid), content_type="application/json")
+        self.assertEqual(resp_valid.status_code, 200)
+        self.assertEqual(resp_valid.json()["results"][0]["status"], "ACCEPTED")
+
+        # 2. COUNT 501 -> REJECTED (exceeds 500 limit)
+        p_invalid = {
+            "source_id": "LINE-01",
+            "event_id": "EV-802",
+            "type": "COUNT",
+            "quantity": 501,
+            "target_event_id": None,
+            "event_time": "2026-10-09T10:30:00Z"
+        }
+        resp_invalid = self.client.post("/api/events", data=json.dumps(p_invalid), content_type="application/json")
+        self.assertEqual(resp_invalid.status_code, 200)
+        res_item = resp_invalid.json()["results"][0]
+        self.assertEqual(res_item["status"], "REJECTED")
+        self.assertIn("between 1 and 500", res_item["message"])
+
+        # 3. Verify net total: only 450 should be counted, not 450 + 501
+        summary = self.client.get("/api/state?view=summary").json()
+        self.assertEqual(summary["net_total"], 450)
+        # 4. Verify rejected_submissions count is 1
+        self.assertEqual(summary["rejected_submissions"], 1)
+
+    def test_9_rejected_submissions_in_summary_and_source_filter(self):
+        """Test 9 (Change Request 02): rejected_submissions in summary, source filter, and MQTT state."""
+        # Submit a rejected item for LINE-01
+        self.client.post("/api/events", data=json.dumps({
+            "source_id": "LINE-01",
+            "event_id": "EV-901-REJ",
+            "type": "COUNT",
+            "quantity": 600,
+            "event_time": "2026-10-09T10:30:00Z"
+        }), content_type="application/json")
+
+        # Submit a rejected item for LINE-02
+        self.client.post("/api/events", data=json.dumps({
+            "source_id": "LINE-02",
+            "event_id": "EV-902-REJ",
+            "type": "COUNT",
+            "quantity": 550,
+            "event_time": "2026-10-09T10:30:00Z"
+        }), content_type="application/json")
+
+        # Unfiltered summary (or /api/stats alias)
+        summary_all = self.client.get("/api/state?view=summary").json()
+        self.assertEqual(summary_all["rejected_submissions"], 2)
+
+        summary_alias = self.client.get("/api/stats?view=summary").json()
+        self.assertEqual(summary_alias["rejected_submissions"], 2)
+
+        # Filtered by source_id=LINE-01
+        summary_line1 = self.client.get("/api/state?source_id=LINE-01&view=summary").json()
+        self.assertEqual(summary_line1["rejected_submissions"], 1)
+
+        # Filtered by source_id=LINE-02
+        summary_line2 = self.client.get("/api/state?source_id=LINE-02&view=summary").json()
+        self.assertEqual(summary_line2["rejected_submissions"], 1)
+
+        # Check MQTT challenge response includes rejected_submissions in state
+        challenge_payload = {
+            "protocol_version": "1.0",
+            "candidate_id": "12",
+            "challenge_id": "CH-TEST-901",
+            "command": "PROCESS_EVENTS",
+            "sent_at": "2026-10-09T10:45:00Z",
+            "expires_at": "2026-10-09T11:45:00Z",
+            "events": [
+                {
+                    "source_id": "LINE-01",
+                    "event_id": "EV-MQTT-901",
+                    "type": "COUNT",
+                    "quantity": 100,
+                    "target_event_id": None,
+                    "event_time": "2026-10-09T10:30:00Z"
+                }
+            ]
+        }
+        resp, status = MqttChallengeService.handle_challenge(challenge_payload, "12")
+        self.assertEqual(status, "COMPLETED")
+        self.assertIn("rejected_submissions", resp["state"])
+

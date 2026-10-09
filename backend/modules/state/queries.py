@@ -55,6 +55,11 @@ class StateQueries:
             classification="CONFLICT"
         ).count()
 
+        # 7. rejected_submissions: Number of stored rejected submission attempts
+        rejected_submissions_count = attempts_qs.filter(
+            classification="REJECTED"
+        ).count()
+
         return {
             "net_total": active_counts_total,
             "processed_events": processed_events_count,
@@ -62,6 +67,7 @@ class StateQueries:
             "unresolved": unresolved_count,
             "duplicates": duplicates_count,
             "conflicts": conflicts_count,
+            "rejected_submissions": rejected_submissions_count,
         }
 
     @staticmethod

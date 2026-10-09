@@ -21,8 +21,8 @@ class EventSerializer(serializers.Serializer):
         if event_type == "COUNT":
             if quantity is None:
                 raise serializers.ValidationError({"quantity": "Quantity is required for COUNT event."})
-            if quantity <= 0:
-                raise serializers.ValidationError({"quantity": "Quantity must be a positive integer."})
+            if quantity < 1 or quantity > 500:
+                raise serializers.ValidationError({"quantity": f"COUNT quantity must be an integer between 1 and 500 (received: {quantity})."})
             if target_event_id:
                 raise serializers.ValidationError({"target_event_id": "target_event_id must be null or omitted for COUNT event."})
 

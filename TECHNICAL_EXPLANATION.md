@@ -128,3 +128,24 @@ Because the application is built as a function-based modular monolith:
    - `modules/mqtt_worker` can be containerized into an independent ingestion daemon running on the factory edge.
    - `modules/events` becomes the Core Event Ingestion Service with its own PostgreSQL schema.
    - `modules/state` becomes a read-optimized Projection / Query Service subscribing to domain events.
+
+---
+
+## 8. Change Request Implementation & Architectural Extensibility
+
+Per the examiner Change Request requirements, the application was extended cleanly without rewriting existing modules, demonstrating the strength of our function-based modular monolith:
+
+1. **Quantity Validation (CR-01):**
+   - Enforced `1 <= quantity <= 500` in `EventSerializer.validate()` (`modules/events/validation.py`).
+   - `COUNT 450` ➔ `ACCEPTED` | `COUNT 501` ➔ `REJECTED`.
+   - Because `EventService.process_batch()` is shared across REST and MQTT, this single change enforced the business rule across all entrypoints without duplication.
+
+2. **Rejected Submissions Indicator (CR-02 & CR-04):**
+   - Extended `StateQueries.get_summary(source_id)` to count `submission_attempts.filter(classification="REJECTED")` from durable PostgreSQL storage.
+   - Automatically updated `GET /api/state?view=summary`, `/api/stats` alias, and the MQTT challenge response `state` object.
+   - Added a 7th KPI card on the frontend dashboard with distinct red styling, displaying `rejected_submissions`.
+
+3. **Production Source Filter (CR-03):**
+   - Added a dedicated Production Source Filter toolbar on the Next.js frontend with quick pills (`All Sources`, `LINE-01`, `LINE-02`, `LINE-03`), custom text input, active badge, and clear button.
+   - Filters Summary, Pending Review, and Exceptions views using existing backend `source_id` query parameters.
+

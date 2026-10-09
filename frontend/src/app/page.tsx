@@ -33,6 +33,7 @@ import {
   ShieldCheck,
   Server,
   Zap,
+  Ban,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -45,6 +46,7 @@ export default function DashboardPage() {
     unresolved: 0,
     duplicates: 0,
     conflicts: 0,
+    rejected_submissions: 0,
   });
   const [pendingEvents, setPendingEvents] = useState<PendingEvent[]>([]);
   const [exceptions, setExceptions] = useState<ExceptionItem[]>([]);
@@ -117,6 +119,38 @@ export default function DashboardPage() {
               event_id: "EV-101",
               type: "COUNT",
               quantity: 5,
+              target_event_id: null,
+              event_time: nowIso,
+            },
+            null,
+            2
+          )
+        );
+        break;
+      case "count-450":
+        setInputPayload(
+          JSON.stringify(
+            {
+              source_id: "LINE-01",
+              event_id: `EV-450-${Date.now().toString().slice(-4)}`,
+              type: "COUNT",
+              quantity: 450,
+              target_event_id: null,
+              event_time: nowIso,
+            },
+            null,
+            2
+          )
+        );
+        break;
+      case "count-501":
+        setInputPayload(
+          JSON.stringify(
+            {
+              source_id: "LINE-01",
+              event_id: `EV-501-${Date.now().toString().slice(-4)}`,
+              type: "COUNT",
+              quantity: 501,
               target_event_id: null,
               event_time: nowIso,
             },
@@ -349,13 +383,109 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 space-y-6">
-        {/* KPI 6 Indicator Cards */}
-        <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+        {/* Production Source Filter Control Bar (Change Request 03) */}
+        <section className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-300 mr-1">
+                <Filter className="w-4 h-4 text-emerald-400" />
+                <span>Production Source:</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSourceId("")}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                  !sourceId
+                    ? "bg-emerald-600 text-slate-950 font-bold shadow-sm"
+                    : "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                }`}
+              >
+                All Sources
+              </button>
+              <button
+                type="button"
+                onClick={() => setSourceId("LINE-01")}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                  sourceId === "LINE-01"
+                    ? "bg-emerald-600 text-slate-950 font-bold shadow-sm"
+                    : "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                }`}
+              >
+                LINE-01
+              </button>
+              <button
+                type="button"
+                onClick={() => setSourceId("LINE-02")}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                  sourceId === "LINE-02"
+                    ? "bg-emerald-600 text-slate-950 font-bold shadow-sm"
+                    : "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                }`}
+              >
+                LINE-02
+              </button>
+              <button
+                type="button"
+                onClick={() => setSourceId("LINE-03")}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                  sourceId === "LINE-03"
+                    ? "bg-emerald-600 text-slate-950 font-bold shadow-sm"
+                    : "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                }`}
+              >
+                LINE-03
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 w-full lg:w-auto">
+              <div className="relative flex-1 lg:w-64">
+                <input
+                  type="text"
+                  value={sourceId}
+                  onChange={(e) => setSourceId(e.target.value.trim())}
+                  placeholder="Filter Line ID (e.g. LINE-01)"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono"
+                />
+                {sourceId && (
+                  <button
+                    type="button"
+                    onClick={() => setSourceId("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs font-bold"
+                    title="Clear filter"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              {sourceId ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 whitespace-nowrap font-mono font-medium">
+                    Active: <strong>{sourceId}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSourceId("")}
+                    className="text-xs text-slate-400 hover:text-white underline"
+                  >
+                    Clear
+                  </button>
+                </div>
+              ) : (
+                <span className="text-[11px] text-slate-500 hidden sm:inline">
+                  Viewing unfiltered factory aggregate
+                </span>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* KPI 7 Indicator Cards (Change Request 04) */}
+        <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3.5">
           {/* 1. Net Total */}
           <div className="bg-slate-900/90 border border-emerald-500/30 rounded-xl p-4 shadow-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 rounded-full blur-xl pointer-events-none group-hover:bg-emerald-500/20 transition" />
             <div className="flex items-center justify-between text-slate-400 text-xs mb-2">
-              <span>Net Total Pieces</span>
+              <span>Net Total</span>
               <Activity className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-2xl lg:text-3xl font-extrabold text-emerald-400 tracking-tight">
@@ -363,7 +493,7 @@ export default function DashboardPage() {
             </div>
             <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-              <span>Verified production</span>
+              <span>Verified count</span>
             </div>
           </div>
 
@@ -376,7 +506,7 @@ export default function DashboardPage() {
             <div className="text-2xl lg:text-3xl font-extrabold text-blue-400 tracking-tight">
               {summary.processed_events.toLocaleString()}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">Completed COUNT & VOID</div>
+            <div className="text-[11px] text-slate-400 mt-1">Completed events</div>
           </div>
 
           {/* 3. Pending Ack */}
@@ -400,7 +530,7 @@ export default function DashboardPage() {
             <div className="text-2xl lg:text-3xl font-extrabold text-purple-400 tracking-tight">
               {summary.unresolved.toLocaleString()}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">Pending VOID references</div>
+            <div className="text-[11px] text-slate-400 mt-1">Pending VOID refs</div>
           </div>
 
           {/* 5. Duplicates */}
@@ -412,7 +542,7 @@ export default function DashboardPage() {
             <div className="text-2xl lg:text-3xl font-extrabold text-slate-300 tracking-tight">
               {summary.duplicates.toLocaleString()}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">Safe replays prevented</div>
+            <div className="text-[11px] text-slate-400 mt-1">Replays prevented</div>
           </div>
 
           {/* 6. Conflicts */}
@@ -424,7 +554,22 @@ export default function DashboardPage() {
             <div className="text-2xl lg:text-3xl font-extrabold text-rose-400 tracking-tight">
               {summary.conflicts.toLocaleString()}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">Payload mismatches</div>
+            <div className="text-[11px] text-slate-400 mt-1">Payload clashes</div>
+          </div>
+
+          {/* 7. Rejected Submissions (Change Request 04) */}
+          <div className="bg-red-950/20 border border-red-500/40 rounded-xl p-4 shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-red-500/10 rounded-full blur-xl pointer-events-none group-hover:bg-red-500/20 transition" />
+            <div className="flex items-center justify-between text-red-300 text-xs mb-2">
+              <span className="font-semibold">Rejected</span>
+              <Ban className="w-4 h-4 text-red-400" />
+            </div>
+            <div className="text-2xl lg:text-3xl font-extrabold text-red-400 tracking-tight">
+              {(summary.rejected_submissions ?? 0).toLocaleString()}
+            </div>
+            <div className="text-[11px] text-red-400/80 mt-1 flex items-center gap-1 font-medium">
+              <span>Invalid blocked (&gt;500)</span>
+            </div>
           </div>
         </section>
 
@@ -513,6 +658,22 @@ export default function DashboardPage() {
                 Examiner Demo Quick Presets:
               </div>
               <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => loadPreset("count-450")}
+                  className="text-[11px] bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 font-semibold px-2.5 py-1 rounded border border-emerald-600/50 transition"
+                  title="Change Request 01: Valid COUNT <= 500"
+                >
+                  COUNT 450 (Valid)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => loadPreset("count-501")}
+                  className="text-[11px] bg-red-950/60 hover:bg-red-900/80 text-red-300 font-semibold px-2.5 py-1 rounded border border-red-600/50 transition"
+                  title="Change Request 01: Invalid COUNT > 500"
+                >
+                  COUNT 501 (Rejected)
+                </button>
                 <button
                   type="button"
                   onClick={() => loadPreset("count-5")}
@@ -709,7 +870,11 @@ export default function DashboardPage() {
                       <tr>
                         <td colSpan={7} className="p-8 text-center text-slate-500">
                           <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-slate-600" />
-                          <div>No pending events waiting for supervisor review.</div>
+                          <div>
+                            {sourceId
+                              ? `No pending events for "${sourceId}" waiting for review.`
+                              : "No pending events waiting for supervisor review."}
+                          </div>
                           <div className="text-[11px] text-slate-600 mt-1">
                             Send a COUNT event from the simulator to see it here.
                           </div>
@@ -780,7 +945,11 @@ export default function DashboardPage() {
                       <tr>
                         <td colSpan={5} className="p-8 text-center text-slate-500">
                           <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-slate-600" />
-                          <div>No active exceptions, unresolved voids, or conflicts found.</div>
+                          <div>
+                            {sourceId
+                              ? `No active exceptions or rejected submissions for "${sourceId}".`
+                              : "No active exceptions, rejected submissions, or conflicts found."}
+                          </div>
                         </td>
                       </tr>
                     ) : (
@@ -793,6 +962,8 @@ export default function DashboardPage() {
                                   ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
                                   : ex.category === "CONFLICT"
                                   ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                  : ex.category === "REJECTED"
+                                  ? "bg-red-500/20 text-red-300 border border-red-500/40"
                                   : "bg-slate-600/20 text-slate-300 border border-slate-600/30"
                               }`}
                             >
