@@ -269,8 +269,8 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Top Header */}
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-30 w-full">
-        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-30 px-4 lg:px-8 py-3.5">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
               <Zap className="w-5 h-5 text-slate-950 font-bold" />
@@ -348,7 +348,7 @@ export default function DashboardPage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 space-y-6">
         {/* KPI 6 Indicator Cards */}
         <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
           {/* 1. Net Total */}
@@ -829,11 +829,9 @@ export default function DashboardPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 w-full">
-        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-3.5 text-center text-xs text-slate-600">
-          CSI Smart Tech Ltd • FSE 01 Practical Assessment • Candidate Arka Karmoker (ID: 12) •
-          PostgreSQL 16 & MQTT 3.1.1/5.0
-        </div>
+      <footer className="border-t border-slate-900 bg-slate-950 px-4 lg:px-8 py-3 text-center text-xs text-slate-600">
+        CSI Smart Tech Ltd • FSE 01 Practical Assessment • Candidate Arka Karmoker (ID: 12) •
+        PostgreSQL 16 & MQTT 3.1.1/5.0
       </footer>
     </div>
   );
